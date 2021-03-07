@@ -2,7 +2,6 @@ package proxyServer
 
 import (
 	"crypto/tls"
-	"fmt"
 	"github.com/Kostikans/proxy/saver/repositorySave"
 	"github.com/Kostikans/proxy/saver/repositorySave/repositoryImpl"
 	"github.com/Kostikans/proxy/webInterface/models"
@@ -14,29 +13,28 @@ import (
 
 type MyProxyServer struct {
 	Server *http.Server
-	saver   repositorySave.HttpRequestSaver
+	saver  repositorySave.HttpRequestSaver
 }
 
 func NewMyProxyServer(saverImpl *repositoryImpl.ProxyRepo) *MyProxyServer {
 	return &MyProxyServer{Server: &http.Server{
-		Addr: ":80",
+		Addr:         ":8080",
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler))},
 		saver: saverImpl,
 	}
 }
 
-func (proxy* MyProxyServer) InitHandler(){
-	proxy.Server.Handler = 	http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (proxy *MyProxyServer) InitHandler() {
+	proxy.Server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxy.HandleHTTP(w, r)
 	})
 }
 
-func (proxy* MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("fsd")
+func (proxy *MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request) {
 	delete(req.Header, "Proxy-Connection")
 	req.RequestURI = ""
 
-	info,err := proxy.GetProxyInfo(req)
+	info, err := proxy.GetProxyInfo(req)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -48,13 +46,12 @@ func (proxy* MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request)
 	}
 
 	client := &http.Client{}
-	resp,err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	defer resp.Body.Close()
-	copyHeader(w.Header(), resp.Header)
 	w.Header().Set("Server", "nginx/1.14.1")
 	w.Header().Set("Connection", "close")
 	w.Header().Set("Location", GetRedirectUrl(req))
@@ -64,18 +61,17 @@ func (proxy* MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request)
 
 }
 
-
-func (proxy* MyProxyServer) GetProxyInfo (r *http.Request) (models.ProxyInfo, error) {
+func (proxy *MyProxyServer) GetProxyInfo(r *http.Request) (models.ProxyInfo, error) {
 	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return models.ProxyInfo{}, err
 	}
 
 	info := models.ProxyInfo{
-		Url:                r.URL.String(),
-		HeaderInfo:         r.Header,
-		Method:             r.Method,
-		RequestBody:        requestBody,
+		Url:         r.URL.String(),
+		HeaderInfo:  r.Header,
+		Method:      r.Method,
+		RequestBody: requestBody,
 	}
 	return info, nil
 }

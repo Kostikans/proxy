@@ -1,0 +1,8 @@
+package webInterface
+
+import "github.com/Kostikans/proxy/webInterface/models"
+
+type RepositoryInterface interface {
+	GetListRequests() ([]models.Request,error)
+	GetRequest(ID string) (models.Request,error)
+}

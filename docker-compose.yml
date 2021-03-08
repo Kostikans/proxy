@@ -2,19 +2,19 @@ version: "3"
 
 volumes:
   redis-data:
-    services:
-     proxy:
-        image: kostikan/proxy:${APP_VERSION}
-        ports:
-          - "8080:8080"
-          - "8000:8000"
-        network_mode: host
-        depends_on:
-          - redis
-     redis:
-       image: "redis:alpine"
-       ports:
-         - "6379:6379"
-       restart: always
-       volumes:
-         - redis-data:/data:rw
+services:
+  proxy:
+    image: kostikan/proxy:${APP_VERSION}
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+    network_mode: host
+    depends_on:
+      - redis
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    restart: always
+    volumes:
+      - redis-data:/data:rw

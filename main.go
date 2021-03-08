@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"github.com/Kostikans/proxy/proxyServer"
 	"github.com/Kostikans/proxy/saver/repositorySave/repositoryImpl"
 	"github.com/Kostikans/proxy/webInterface"
@@ -9,7 +8,6 @@ import (
 	"github.com/Kostikans/proxy/webInterface/usecaseInterfaceImpl"
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/mux"
-	"log"
 	"net/http"
 	"time"
 )
@@ -35,36 +33,23 @@ func newPool(server string) *redis.Pool {
 	}
 }
 
-func main(){
-	var pemPath string
-	flag.StringVar(&pemPath, "pem", "server.pem", "path to pem file")
-
-	var keyPath string
-	flag.StringVar(&keyPath, "key", "server.key", "path to key file")
-
-	var proto string
-	flag.StringVar(&proto, "proto", "https", "Proxy protocol (http or https)")
-
-	flag.Parse()
-	if proto != "http" && proto != "https" {
-		log.Fatal("Protocol must be either http or https")
-	}
+func main() {
 	pool := newPool(":6379")
 	conn := pool.Get()
 
 	repo := repositoryImpl.NewProxyRepo(conn)
-	myProxy := proxyServer.NewMyProxyServer(repo)
+	myProxy := proxyServer.NewMyProxyServer(repo, ":8080")
 	myProxy.InitHandler()
 
 	r := mux.NewRouter()
 	interfaceRepo := repositoryInterfaceImpl.NewInterfaceRep(conn)
 	interfaceUsecase := usecaseInterfaceImpl.NewInterfaceUsecase(interfaceRepo)
-	webInterface.InitHandler(r,myProxy,interfaceUsecase)
-	go http.ListenAndServe(":8000",r)
-	if proto == "http" {
-		log.Fatal(myProxy.Server.ListenAndServe())
-	} else {
-		log.Fatal(myProxy.Server.ListenAndServeTLS(pemPath, keyPath))
-	}
+	webInterface.InitHandler(r, myProxy, interfaceUsecase)
+	go http.ListenAndServe(":8000", r)
+
+	myProxy.Server.ListenAndServe()
+	//myProxyHttps := proxyServer.NewMyProxyServer(repo,":8081")
+	//myProxyHttps.InitHandler()
+	//myProxyHttps.Server.ListenAndServeTLS("ca.crt", "cert.key")
 
 }

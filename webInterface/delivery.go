@@ -60,11 +60,13 @@ func (h *Handler) HandlerRepeatRequest(w http.ResponseWriter, req *http.Request)
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+
 	req, err = http.NewRequest(request.Info.Method, request.Info.Url, bytes.NewReader(request.Info.RequestBody))
 	if err != nil {
 		log.Println(err)
 	}
 	req.Header = request.Info.HeaderInfo
+	fmt.Println(req)
 	h.proxy.HandleHTTP(w, req)
 }
 
@@ -81,8 +83,7 @@ func (h *Handler) HandlerScanRequest(w http.ResponseWriter, req *http.Request) {
 		log.Println(err)
 	}
 	req.Header = request.Info.HeaderInfo
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := h.proxy.Client.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return

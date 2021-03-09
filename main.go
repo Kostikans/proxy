@@ -36,7 +36,6 @@ func newPool(server string) *redis.Pool {
 func main() {
 	pool := newPool(":6379")
 	conn := pool.Get()
-
 	repo := repositoryImpl.NewProxyRepo(conn)
 	myProxy := proxyServer.NewMyProxyServer(repo, ":8080")
 	myProxy.InitHandler()

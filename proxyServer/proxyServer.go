@@ -1,7 +1,6 @@
 package proxyServer
 
 import (
-	"fmt"
 	"github.com/Kostikans/proxy/saver/repositorySave"
 	"github.com/Kostikans/proxy/saver/repositorySave/repositoryImpl"
 	"github.com/Kostikans/proxy/webInterface/models"
@@ -9,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"time"
 )
@@ -31,56 +29,12 @@ func NewMyProxyServer(saverImpl *repositoryImpl.ProxyRepo, addres string) *MyPro
 func (proxy *MyProxyServer) InitHandler() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodConnect {
-			proxy.HandleTunneling(w, r)
-		} else {
-			proxy.HandleHTTP(w, r)
-		}
+		proxy.HandleHTTP(w, r)
 	})
 	proxy.Server.Handler = r
 }
 
-func transfer(destination io.WriteCloser, source io.ReadCloser) {
-	defer destination.Close()
-	defer source.Close()
-	io.Copy(destination, source)
-}
-
-func (proxy *MyProxyServer) HandleTunneling(w http.ResponseWriter, r *http.Request) {
-	destConn, err := net.DialTimeout("tcp", r.Host, 10*time.Second)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
-		return
-	}
-	clientConn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-	}
-	go transfer(destConn, clientConn)
-	go transfer(clientConn, destConn)
-}
-
 func (proxy *MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request) {
-	redirectRequest := proxy.CopyRequest(req)
-
-	fmt.Println(redirectRequest)
-	resp, err := proxy.Client.Do(redirectRequest)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer resp.Body.Close()
-
-	w.WriteHeader(http.StatusMovedPermanently)
-	w.Header().Set("Server", "nginx/1.14.1")
-	w.Header().Set("Connection", "close")
-	w.Header().Set("Location", req.URL.String())
 
 	info, err := proxy.GetProxyInfo(req)
 	if err != nil {
@@ -94,9 +48,15 @@ func (proxy *MyProxyServer) HandleHTTP(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	w.Write([]byte("<html>\n<head><title>301 Moved Permanently</title></head>" +
-		"\n<body bgcolor=\"white\">\n<center><h1>301 Moved Permanently</h1></center>\n<hr><center>nginx/1.14.1</center>\n</body>\n</html>\n"))
-
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+	copyHeader(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func (proxy *MyProxyServer) CopyRequest(r *http.Request) *http.Request {
